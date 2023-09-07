@@ -1,0 +1,400 @@
+---
+title: "Final Project"
+output:
+  pdf_document: default
+  html_document: default
+date: "2023-05-09"
+---
+
+***Final Project***
+
+IST687: Introduction to Data Science
+Health Management Organization data
+
+```{r}
+# GROUP 7
+# TEAM MEMBERS: 
+      # Shruti Rao
+      # Shubham Koshti
+      # Kishan Polekar
+      # Janhavi Ghuge
+```
+
+Analysis of the dataset to see which predictors influence whether a person will be an "expensive" entity or not. Various factors might influence this decision and we will look at a few visuals, work on the data using predictive analysis to reach a conclusion for the management.
+
+```{r}
+#First, we have to import the libraries that we will be using for our initial
+#reading of data, cleaning the data, and simple analysis.
+library(tidyverse)
+
+#We use the read_csv function to get the data and store it in the HMO_data variable.
+HMO_data <- read_csv('https://intro-datascience.s3.us-east-2.amazonaws.com/HMO_data.csv')
+```
+
+**1. Data Analysis and Cleaning**
+
+In this section, we will figure out the data structure, it's attributes, the type of variables in the columns, how they look like statistically (mean, mode, median, etc.), if they have any irregularities or null values, and fix those null values.
+
+```{r}
+#We will now have a look at the data to see the structures, identify any missing values.
+dim(HMO_data)
+
+#This dataset has 7582 rows (observations) and 14 columns (attributes).
+
+#We will have a look at the data.
+head(HMO_data)
+```
+
+```{r}
+#Let's look at the types of each variable.
+str(HMO_data)
+
+#There are 6 attributes that are of numerical type and 8 columns
+#that are of type character (string).
+```
+
+```{r}
+#Next, we gather some statistical analysis of the variables.
+summary(HMO_data)
+
+#As we can see, each numerical variable has a mean, median, etc. Also, in this
+#analysis, we see that bmi has 78 null values while hypertension has 80 null values.
+```
+
+```{r}
+#Let's see if the string columns have any null values.
+nrow(HMO_data[is.na(HMO_data$smoker),])
+nrow(HMO_data[is.na(HMO_data$location),])
+nrow(HMO_data[is.na(HMO_data$location_type),])
+nrow(HMO_data[is.na(HMO_data$education_level),])
+nrow(HMO_data[is.na(HMO_data$yearly_physical),])
+nrow(HMO_data[is.na(HMO_data$exercise),])
+nrow(HMO_data[is.na(HMO_data$married),])
+nrow(HMO_data[is.na(HMO_data$gender),])
+
+#We see that there are no null values in any of the other columns.
+```
+
+```{r}
+#Let's remove the NA values from bmi and hypertension.
+#We will use the na_interpolation() function to achieve this.
+#It is in the imputeTS package.
+install.packages('imputeTS')
+library(imputeTS)
+
+#Before
+print('Number of NA\'s Before')
+nrow(HMO_data[is.na(HMO_data$bmi),])
+nrow(HMO_data[is.na(HMO_data$hypertension),])
+
+#Using na_interpolation() to remove null values from the two columns.
+HMO_data$bmi <- na_interpolation(HMO_data$bmi)
+HMO_data$hypertension <- na_interpolation(HMO_data$hypertension)
+
+#After
+print('Number of NA\'s After')
+nrow(HMO_data[is.na(HMO_data$bmi),])
+nrow(HMO_data[is.na(HMO_data$hypertension),])
+```
+
+In this section we will remove the possible outliers. Assuming that the bottom and top 0.5% data contained in the distribution curve contains possible outliers
+
+```{r}
+lower_bound <- quantile(HMO_data$cost, 0.005)
+upper_bound <- quantile(HMO_data$cost, 0.995)
+lower_bound #0.5th percentile of all data
+upper_bound #99.5th percentile of all data
+outliers <- which(HMO_data$cost < lower_bound | HMO_data$cost > upper_bound)
+
+nrow(HMO_data[outliers,]) #number of outliers
+
+HMO_data_new <- HMO_data[-outliers,]
+
+#We now look at the summary statistics of the new dataset.
+summary(HMO_data_new)
+```
+
+**2. Data Visualization**
+
+In this section, we will attempt to look at some graphs and charts to get a better idea of the variables and how they are spread out. We will also look at some histograms, some bar charts, scatterplots, and even a map of the different states and regions to see how the cost of each individual's insurance policy varies.
+
+```{r}
+#In this section, we will try to visualize the patterns between categorical attributes with
+#the cost attribute. Also, analyse the pattern of cost attribute
+
+#Here we're using gridExtra package for arranging multiple graphs in one pane
+install.packages("gridExtra")
+
+library(gridExtra)
+
+ggplot(HMO_data_new) + geom_histogram(aes(x=cost), col='black', fill='cyan', binwidth = 1000) +
+  ggtitle("Cost attribute analysis") + scale_x_continuous(breaks = seq(0, 50000, by = 5000))
+#We can observe that most of the patients in the dataset are incurring costs in the range of $0-10000,
+#with the graph showing a right-skewed pattern
+```
+
+```{r}
+#Plotting box-whisker plots to analyse the effect of each categorical attribute on the
+#'Cost' attribute
+#'
+g1 <- ggplot(HMO_data_new) + geom_boxplot(aes(x=smoker, y=cost), col="black", fill = 'cyan') +
+  ggtitle("Smoker vs Cost")
+g1 <- g1 +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+g2 <- ggplot(HMO_data_new) + geom_boxplot(aes(x=education_level, y=cost), col="black",
+                                          fill = 'green', ) + ggtitle("Education Level vs Cost")
+g2 <- g2 +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+g3 <- ggplot(HMO_data_new) + geom_boxplot(aes(x=yearly_physical, y=cost), col="black",
+                                          fill = 'orange') + ggtitle("Yearly Physical vs Cost")
+g3 <- g3 +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  
+g4 <- ggplot(HMO_data_new) + geom_boxplot(aes(x=exercise, y=cost), col="black",
+                                          fill = 'purple') + ggtitle("Exercise vs Cost")
+g4 <- g4 +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+g5 <- ggplot(HMO_data_new) + geom_boxplot(aes(x=married, y=cost), col="black",
+                                          fill = 'pink') + ggtitle("Marraige Status vs Cost")
+g5 <- g5 +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+g6 <- ggplot(HMO_data_new) + geom_boxplot(aes(x=gender, y=cost), col="black",
+                                          fill = 'yellow') + ggtitle("Gender vs Cost")
+g6 <- g6 +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+
+grid.arrange(g1, g2, nrow=1)
+grid.arrange(g3, g4, nrow=1)
+grid.arrange(g5, g6, nrow=1)
+
+#We can observe that for each attribute, there is a category for which the overall cost
+#incurred by people is higher as compared to the other categories.
+#Although, these graphs don't provide enough information about which of the attribute is
+#most closely related with cost
+```
+
+```{r}
+#Map plot to analyse how various regions affect the cost expenditure of patients in the dataset.
+
+#We will plot a map of all the US states and have the color represent the cost of expenditure
+#for each state.
+
+#For this we will use the ggplot2 library
+
+install.packages('ggplot2')
+install.packages('dplyr')
+install.packages('maps')
+install.packages('mapproj')
+
+library(ggplot2)
+library(dplyr)
+library(maps)
+library(mapproj)
+
+states <- map_data("state")
+states$state_name <- tolower(states$region)
+HMO_data_new$location <- tolower(HMO_data_new$location)
+HMO_data_with_states <- merge(HMO_data_new, states, all.y=TRUE, by.x="location", by.y="region")
+
+HMO_data_with_states <- HMO_data_with_states %>% arrange(order)
+
+ggplot(HMO_data_with_states) + geom_polygon(color="black",
+                 aes(x=long,y=lat,group=group,fill=cost)) +
+        ggtitle('Cost of insurance per state') +
+coord_map()
+
+#As we can see, the dataset is limited to some of the northeastern states (7), and it shows
+#the average cost per state of insurance. It is evident that Maryland has a higher
+#average than other states.
+```
+
+```{r}
+#Creating a bar graph representing the count of people from different states.
+
+countPlot <- ggplot(data = HMO_data_new) + aes(x=location) + geom_bar(fill='purple')
+countPlot
+
+#Creating a bar graph representing the count of people from urban or rural location types.
+
+locationTypePlot <- ggplot(data = HMO_data_new) + aes(x=location_type) + geom_bar(fill='violet')
+locationTypePlot
+
+#Creating a bar graph representing the distribution based on gender.
+
+genderPlot <- ggplot(data = HMO_data_new) + aes(x=gender) + geom_bar(fill='lightgreen')
+genderPlot
+
+#For the next visualization, we will create a new column in our dataframe based on the existing 'age'
+#column. This column will divide our dataset into 4 age categories: '18-25', '26-40', '41-55', and '55+'.
+
+HMO_data_new <- HMO_data_new %>% mutate(age_group =
+                     case_when(age <= 25 ~ "18-25", 
+                               age <= 40 ~ "26-40",
+                               age <= 55 ~ "41-55",
+                               age >55 ~ "55+")
+)
+
+#We will now look at how our dataset is divided based on the age groups.
+
+ageGroupPlot <- ggplot(data = HMO_data_new) + aes(x=age_group) + geom_bar(fill='orange')
+ageGroupPlot
+```
+
+**3. Identifying significant predictors**
+
+In this section, we will try to identify variables that have a significant impact on the cost variable. Firstly, we will visualize the relationship of multiple variables with cost variable using scatterplots. Then, we'll run regression models to study the dependancy of cost variables with multiple variables.
+
+```{r}
+#We can observe that there is a slight linear relationship between age and cost variables.
+#Although, the age variable alone wouldn't be sufficient to predict the cost values accurately.
+ggplot(HMO_data_new, aes(x=age, y=cost)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+```
+
+```{r}
+#We can observe that there is a slight linear relationship between bmi and cost variables.
+#Although, the bmi variable alone wouldn't be sufficient to predict the cost values accurately.
+ggplot(HMO_data_new, aes(x=bmi, y=cost)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+```
+
+**4. Identifying the threshold cost value to generate Expensive attribute**
+
+Here we will fixate on a cost value to create the expensive attribute column. Based on the statistical summary of the 'cost' attribute, we are picking the 3rd Quartile value for the cost column as the threshold value.
+
+```{r}
+lm_hmo1 <- lm(cost ~ age + smoker + exercise + bmi + hypertension + yearly_physical,
+              data = HMO_data_new)
+summary(lm_hmo1)
+#Using linear regression model, we can predict the cost variable with almost 59% accuracy
+#using the predictors such as age, smoker, exercise, bmi and hypertension.
+```
+
+```{r}
+#Next, we set the threshold for a person to be termed as 'expensive' as the cost value greater
+#than the 75th percentile cost value (4748.00). All other records will be viewed as 'non-expensive'
+HMO_t_quar <- quantile(HMO_data_new$cost, 0.75)
+HMO_data_new$expensive <- ifelse(HMO_data_new$cost >= HMO_t_quar, 1, 0)
+head(HMO_data_new)
+
+#Converting the expensive variable into two level factor variable to run regression on it
+HMO_data_new$expensive <- as.factor(HMO_data_new$expensive)
+```
+
+```{r}
+#Here, we use maps to display the states as expensive/non-expensive based on overall state average.
+HMO_data_new_with_states <- merge(HMO_data_new, states, all.y=TRUE, by.x="location", by.y="region")
+
+HMO_data_new_with_states <- HMO_data_new_with_states %>% arrange(order)
+
+ggplot(HMO_data_new_with_states) + geom_polygon(color="black",
+                 aes(x=long,y=lat,group=group,fill=expensive)) +
+        ggtitle('Expensive vs non-expensive states') +
+coord_map()
+```
+
+**5. Dividing the dataset into training and testing set**
+
+We are dividing 70% of dataset into training data and 30% of dataset into testing data.
+
+```{r}
+#In this section, we divide our dataset into training and testing data for further analysis.
+
+install.packages('caret')
+library('caret')
+trainlist <- createDataPartition(y=HMO_data_new$cost, p=0.70, list=FALSE)
+trainSet <- HMO_data_new[trainlist,]
+testSet <- HMO_data_new[-trainlist,]
+```
+
+```{r}
+str(trainSet)
+
+str(testSet)
+```
+
+**6. Prediction analysis of Expensive variable using various models listed below:**
+
+SVM
+K-SVM
+
+```{r}
+#Now, we will use some models on our datasets to see which model fits the best on our data
+#for future predictions.
+
+# SVM Model
+#First, we will use the SVM model where we apply the 'svmRadial' method. This is the most popular
+#and most commonly used method as this is similar to a Gaussian distribution.
+install.packages('kernlab')
+library('caret')
+
+#Training the SVM model on our train dataset.
+hmo_svm <- train(expensive ~. , data=trainSet, method = "svmRadial", trControl =
+                   trainControl(method = "none"), preProcess = c("center", "scale"))
+hmo_svm
+```
+
+```{r}
+#We will now test the model by predicting values in our test dataset.
+pred_out <- predict(hmo_svm, newdata=testSet)
+conf_matrix <- table(pred_out, testSet$expensive)
+
+#Confusion matrix of the prediction.
+conf_matrix
+```
+
+```{r}
+#As we see here, the error (1-accuracy) rate is 93.51%
+
+error <- (sum(conf_matrix) - sum(diag(conf_matrix)))/sum(conf_matrix)
+accuracy <- 1- error
+accuracy
+```
+
+```{r}
+#Here we use the confusionMatrix function from the caret package.
+confusionMatrix(pred_out, testSet$expensive)
+```
+
+```{r}
+# KSVM Model
+#Second, we will use the K-SVM model. This is a Kernel-SVM approach. The difference here as
+#compared to the normal SVM approach is that we specify the number of Kernels (points) that
+#we will use closest to the current point to determine if they are similar or not for classification.
+#This method uses the efficiency of SVM along with the accuracy of KNN (nearest neighbor) method.
+
+library(kernlab)
+
+#Training the model on train dataset
+ksvmHMO <- ksvm(expensive ~ ., data=trainSet, C=5, cross=3, prob.model=TRUE)
+ksvmHMO
+```
+
+```{r}
+#Now we predict using the model on our test dataset.
+ksvmPred <- predict(ksvmHMO, newdata=testSet)
+ksvm_conf_matrix <- table(ksvmPred, testSet$expensive)
+#Confusion Matrix
+ksvm_conf_matrix
+```
+
+```{r}
+#As we see, the accuracy for this model increased as compared to SVM. It is around 98.75%
+
+ksvmError <- (sum(ksvm_conf_matrix) - sum(diag(ksvm_conf_matrix)))/sum(ksvm_conf_matrix)
+ksvmAccuracy <- 1- ksvmError
+ksvmAccuracy
+```
+
+```{r}
+#Using the confusionMatrix function to verify our result in the above block.
+confusionMatrix(ksvmPred, testSet$expensive)
+```
+
+
+**CONCLUSION**
+
+Based on the above analysis, we were certain that the K-SVM Model was best suited for our predictions of the 'expensive' variable. We were able to tell which incoming or existing record could be an expensive customer for the insurance company. We also have some suggestions for people to lower their insurance premium:
+
+• People who are active on a regular basis tend to have lower medical and insurance costs. So, routine exercises, promoting morning walks/runs, and the importance of keeping your body fit could be some of the things included in community posters or awareness camps.
+
+• In our analysis, we found out that smoking is the primary cause of health insurance premiums going up, and in general, it also leads to many health related issues. We can address this by distributing anti smoking flyers, health fairs that aim to provide alternates to smoking that will help individuals curb this bad habit, and partner with local schools and businesses to promote anti smoking campaigns.
+
+• We can partner with local hospitals to promote routine health check-ups for individuals over the age of 40 which will help detect certain diseases or symptoms early and help keep the community healthy as a whole.
